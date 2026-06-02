@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control de Tiempos OT (local)</title>
+
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;font-size:13px;background:#f0f2f5;padding:12px}
+    h1{font-size:15px;font-weight:700;text-align:center;margin-bottom:2px;color:#1a1a2e;letter-spacing:1px;text-transform:uppercase}
+    .subtitle{text-align:center;font-size:11px;color:#666;margin-bottom:8px}
+    #save-status{text-align:center;font-size:11px;height:18px;margin-bottom:6px;transition:opacity .4s}
+    #save-status.ok{color:#27ae60;font-weight:700}
+    #save-status.saving{color:#e67e22;font-weight:700}
+    #save-status.err{color:#e74c3c;font-weight:700}
+    #save-status.info{color:#2980b9;font-weight:700}
+    .top-btns{display:flex;justify-content:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+    .view-tabs{display:flex;gap:6px;justify-content:center;margin-bottom:10px}
+    .view-tab{padding:6px 16px;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:700;background:#ccd0d9;color:#444}
+    .view-tab.active{background:#1a1a2e;color:#fff}
+    .view-panel{display:none}
+    .view-panel.active{display:block}
+
+    .ot-tabs-bar{display:flex;align-items:center;gap:4px;flex-wrap:wrap;border-bottom:2px solid #1a1a2e;margin-bottom:0}
+    .ot-tab{padding:6px 14px;border:1px solid #bbb;border-bottom:none;border-radius:5px 5px 0 0;cursor:pointer;font-size:12px;font-weight:600;background:#dde0e8;color:#444;display:flex;align-items:center;gap:6px}
+    .ot-tab.active{background:#1a1a2e;color:#fff;border-color:#1a1a2e}
+    .ot-tab.cerrada{background:#7f8c8d;color:#fff;border-color:#7f8c8d}
+    .close-ot{font-size:10px;background:rgba(255,0,0,.7);border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;color:#fff;font-weight:900;line-height:18px;text-align:center;padding:0}
+    .btn-new-ot{padding:6px 13px;border:1px dashed #1a1a2e;border-bottom:none;border-radius:5px 5px 0 0;cursor:pointer;font-size:12px;font-weight:700;background:#fff;color:#1a1a2e}
+    .ot-content{background:#fff;border:1px solid #1a1a2e;border-top:none;border-radius:0 0 8px 8px;padding:12px;margin-bottom:14px}
+    .ot-meta{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+    .ot-meta label{font-weight:700;font-size:12px;white-space:nowrap}
+    .ot-meta input{border:1px solid #bbb;border-radius:4px;padding:4px 8px;font-size:13px;width:180px}
+    .badge{border-radius:4px;padding:3px 10px;font-size:11px;font-weight:700}
+    .badge-abierta{background:#2980b9;color:#fff}
+    .badge-cerrada{background:#27ae60;color:#fff}
+    .table-wrap{overflow-x:auto}
+    table{width:100%;border-collapse:collapse;background:#fff}
+    thead tr{background:#1a1a2e;color:#fff}
+    thead th{padding:7px 5px;font-size:11px;text-align:center;white-space:nowrap;border-right:1px solid #2e2e4e}
+    thead th:last-child{border-right:none}
+    tbody tr{border-bottom:1px solid #e8e8e8}
+    tbody tr:nth-child(even){background:#f9f9f9}
+    tbody tr.row-locked{background:#f0fff4}
+    tbody td{padding:4px 3px;text-align:center;vertical-align:middle;border-right:1px solid #e8e8e8}
+    tbody td:last-child{border-right:none}
+    input.cell,select.cell{width:100%;border:none;background:transparent;font-size:12px;text-align:center;padding:2px 4px;outline:none;color:#222;cursor:pointer}
+    input.cell:focus,select.cell:focus{background:#eef4ff;border-radius:3px}
+    input.cell:disabled,select.cell:disabled{color:#555;background:transparent;cursor:default}
+    input.obs{text-align:left;cursor:text}
+    select.cell{-webkit-appearance:none;appearance:none;text-align-last:center}
+    .time-cell{display:flex;align-items:center;justify-content:center;gap:3px;flex-wrap:wrap}
+    .time-display{font-size:11px;font-weight:600;color:#1a1a2e;min-width:52px;text-align:center}
+    .time-display.empty{color:#aaa;font-weight:400;font-size:10px}
+    .btn-t{font-size:10px;padding:3px 7px;border:none;border-radius:4px;cursor:pointer;white-space:nowrap;font-weight:600}
+    .btn-t:disabled{opacity:.4;cursor:default}
+    .btn-start{background:#27ae60;color:#fff}
+    .btn-pause{background:#e67e22;color:#fff}
+    .btn-end{background:#e74c3c;color:#fff}
+    .pause-info{font-size:10px;color:#8e44ad;font-weight:600;display:block;margin-top:2px}
+    .total-cell{font-weight:700;color:#1a1a2e;font-size:12px}
+    .btn-del{background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:3px 7px;cursor:pointer;font-size:11px;font-weight:700}
+    .ot-footer{display:flex;justify-content:space-between;align-items:center;margin-top:10px;flex-wrap:wrap;gap:8px}
+    .ot-footer-left{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+    .ot-footer-right{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+    .total-bar{background:#1a1a2e;color:#fff;border-radius:5px;padding:6px 14px;font-size:13px;font-weight:700}
+    .btn-a{padding:6px 14px;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600}
+    .btn-a:disabled{opacity:.4;cursor:default}
+    .btn-add-row{background:#444;color:#fff}
+    .btn-finalizar{background:#e67e22;color:#fff}
+    .btn-reabrir{background:#2980b9;color:#fff}
+    .btn-print-ot{background:#7f8c8d;color:#fff}
+    .btn-save-now{background:#2980b9;color:#fff}
+    .btn-danger{background:#c0392b;color:#fff}
+    #loading-overlay{position:fixed;inset:0;background:#f0f2f5;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:12px}
+    #loading-overlay .spin{width:36px;height:36px;border:4px solid #ccc;border-top-color:#1a1a2e;border-radius:50%;animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    #loading-overlay p{color:#1a1a2e;font-weight:700;font-size:14px}
+    #modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;display:none;align-items:center;justify-content:center}
+    #modal-overlay.visible{display:flex}
+    #modal-box{background:#fff;border-radius:10px;padding:28px 24px;max-width:340px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.3);text-align:center}
+    #modal-box h3{font-size:15px;color:#1a1a2e;margin-bottom:10px}
+    #modal-box p{font-size:13px;color:#555;margin-bottom:20px;line-height:1.5}
+    #modal-box .modal-btns{display:flex;gap:10px;justify-content:center}
+    #modal-box .modal-btns button{padding:8px 22px;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer}
+    #modal-btn-cancel{background:#ccc;color:#333}
+    #modal-btn-ok{background:#c0392b;color:#fff}
+  </style>
+
+  <script>
+    // --- PERSISTENCIA LOCAL ---
+    const STORAGE_KEY = 'ot_control_local_v2';
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return null;
+        return JSON.parse(raw);
+      } catch (e) {
+        console.error('Error leyendo localStorage', e);
+        return null;
+      }
+    }
+
+    function saveState(state) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (e) {
+        console.error('Error guardando en localStorage', e);
+      }
+    }
+  </script>
+</head>
+
+<body>
+  <div id="loading-overlay">
+    <div class="spin"></div>
+    <p>Cargando datos..........</p>
+  </div>
+
+  <h1>Control de Tiempos por Orden de Trabajo</h1>
+  <div class="subtitle">Gestiona múltiples OT simultáneamente. Pausa y reanuda cada línea.</div>
+
+  <div id="save-status" class="info">Iniciando...</div>
+
+  <div class="top-btns">
+    <button class="btn-a btn-save-now" onclick="saveNow()">Guardar ahora</button>
+    <button class="btn-a btn-excel" onclick="exportarTodoCSV()">Exportar todo a Excel</button>
+  </div>
+
+  <div class="view-tabs">
+    <button class="view-tab active" id="tab-view-abiertas" onclick="setMainView('abiertas')">OT abiertas</button>
+    <button class="view-tab" id="tab-view-cerradas" onclick="setMainView('cerradas')">OT finalizadas</button>
+  </div>
+
+  <div class="view-panel active" id="view-abiertas">
+    <div class="ot-tabs-bar" id="ot-tabs-abiertas">
+      <button class="btn-new-ot" onclick="createOT()">Nueva OT</button>
+    </div>
+    <div id="ot-panels-abiertas"></div>
+  </div>
+
+  <div class="view-panel" id="view-cerradas">
+    <div class="ot-tabs-bar" id="ot-tabs-cerradas">
+      <!-- sin botón de nueva OT, solo pestañas -->
+    </div>
+    <div id="ot-panels-cerradas"></div>
+  </div>
+
+  <iframe id="print-frame" style="display:none"></iframe>
+
+  <div id="modal-overlay">
+    <div id="modal-box">
+      <h3>Eliminar OT</h3>
+      <p id="modal-msg"></p>
+      <div class="modal-btns">
+        <button id="modal-btn-cancel" onclick="modalCancel()">Cancelar</button>
+        <button id="modal-btn-ok" onclick="modalOk()">Sí, eliminar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --------- ESTADO GLOBAL ---------
+    let ots = [];
+    let otId = 0;
+    let rowId = 0;
+    let activeOT = null;
+    let modalCallback = null;
+    let currentView = 'abiertas'; // 'abiertas' | 'cerradas'
+
+    const OPERARIOS = ['Juanjo Cerdá'];
+    const PROCESOS  = ['Diseño','Maquetación','Retoque','Reunión','Formación','Varios'];
+
+    // --------- UTILIDADES ---------
+    const pad = n => String(n).padStart(2,'0');
+
+    function fmtHMS(s){
+      const h   = Math.floor(s/3600);
+      const m   = Math.floor((s%3600)/60);
+      const sec = s%60;
+    return pad(h)+':'+pad(m)+':'+pad(sec);
+    }
+
+    function today(){
+      return new Date().toLocaleDateString('es-ES');
+    }
+
+    function setStatus(msg, cls='info', autoClear=true){
+      const el = document.getElementById('save-status');
+      if(!el) return;
+      el.textContent = msg;
+      el.className = cls;
+      el.style.opacity = 1;
+      if(autoClear){
+        setTimeout(()=>{ el.style.opacity = 0; }, 2500);
+      }
+    }
+
+    function saveNow(){
+      persistAll();
+      setStatus('Guardado manual en este navegador','ok');
+    }
+
+    function persistAll(){
+      const state = {
+        ots,
+        otId,
+        rowId,
+        activeOT
+      };
+      saveState(state);
+    }
+
+    function exportarTodoCSV(){
+      if(!ots.length){
+        alert('No hay datos para exportar.');
+        return;
+      }
+
+      const filas = [];
+      filas.push(['OT','Descripcion','Cliente','Cerrada','ID fila','Segundos netos']);
+
+      ots.forEach(ot=>{
+        ot.rows.forEach(r=>{
+          filas.push([
+            ot.num,
+            ot.desc || '',
+            ot.cliente || '',
+            ot.cerrada ? 'Sí' : 'No',
+            r.id,
+            calcNetSeconds(r)
+          ]);
+        });
+      });
+
+  const csv = filas.map(row =>
+    row.map(v => `"${String(v).replace(/"/g,'""')}"`).join(';')
+  ).join('\n');
+
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'control_tiempos_ot.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+    // --------- CAMBIO VISTA PRINCIPAL ---------
+    function setMainView(v){
+      currentView = v;
+      document.getElementById('view-abiertas').classList.toggle('active', v==='abiertas');
+      document.getElementById('view-cerradas').classList.toggle('active', v==='cerradas');
+      document.getElementById('tab-view-abiertas').classList.toggle('active', v==='abiertas');
+      document.getElementById('tab-view-cerradas').classList.toggle('active', v==='cerradas');
+      applyOTVisibility();
+    }
+
+    function applyOTVisibility(){
+      ots.forEach(ot=>{
+        const isClosed = !!ot.cerrada;
+        const tabA = document.getElementById('tab-a-'+ot.id);
+        const panelA = document.getElementById('panel-a-'+ot.id);
+        const tabC = document.getElementById('tab-c-'+ot.id);
+        const panelC = document.getElementById('panel-c-'+ot.id);
+
+        if(!isClosed){
+          if(tabA)  tabA.style.display = 'flex';
+          if(panelA)panelA.style.display = (currentView==='abiertas' && activeOT===ot.id)?'block':'none';
+          if(tabC)  tabC.style.display = 'none';
+          if(panelC)panelC.style.display = 'none';
+        }else{
+          if(tabA)  tabA.style.display = 'none';
+          if(panelA)panelA.style.display = 'none';
+          if(tabC)  tabC.style.display = 'flex';
+          if(panelC)panelC.style.display = (currentView==='cerradas' && activeOT===ot.id)?'block':'none';
+        }
+      });
+    }
+
+    // --------- MODAL ---------
+    function showModal(msg, cb){
+      document.getElementById('modal-msg').textContent = msg;
+      document.getElementById('modal-overlay').classList.add('visible');
+      modalCallback = cb;
+    }
+    function modalOk(){
+      document.getElementById('modal-overlay').classList.remove('visible');
+      if (modalCallback) modalCallback();
+      modalCallback = null;
+    }
+    function modalCancel(){
+      document.getElementById('modal-overlay').classList.remove('visible');
+      modalCallback = null;
+    }
+
+    // --------- FILAS / TIEMPOS ---------
+    function allRows(){
+      return ots.flatMap(o=>o.rows);
+    }
+
+    function calcNetSeconds(r){
+      if(!r.startTs || !r.endTs) return 0;
+      let diff = Math.floor((r.endTs - r.startTs)/1000);
+      (r.pauses||[]).forEach(p=>{
+        diff -= Math.floor((p.to - p.from)/1000);
+      });
+      return Math.max(0, diff);
+    }
+
+    function updateOTTotal(otId){
+      const ot = ots.find(o=>o.id===otId);
+      if(!ot) return;
+      const total = ot.rows.reduce((s,r)=>s+calcNetSeconds(r),0);
+      const barA = document.getElementById('totalbar-a-'+ot.id);
+      const barC = document.getElementById('totalbar-c-'+ot.id);
+      if(barA) barA.textContent = 'Tiempo total '+fmtHMS(total);
+      if(barC) barC.textContent = 'Tiempo total '+fmtHMS(total);
+    }
+
+    function renderRow(r){
+      ['a','c'].forEach(suf=>{
+        const tr = document.getElementById('row-'+suf+'-'+r.id);
+        if(!tr) return;
+
+        const buttons = {
+          start: tr.querySelector('.btn-start'),
+          pause: tr.querySelector('.btn-pause'),
+          end:   tr.querySelector('.btn-end')
+        };
+        const pauseInfo = tr.querySelector('.pause-info');
+        const totalDisp = tr.querySelector('.total-disp');
+        const inicio = tr.querySelector('.hora-inicio');
+        const fin    = tr.querySelector('.hora-fin');
+
+        const readOnly = suf==='c'; // cerradas → solo ver
+
+        if(!r.startTs){
+          if(totalDisp){ totalDisp.textContent=''; totalDisp.classList.add('empty'); }
+          if(inicio) inicio.value = '';
+          if(fin)    fin.value = '';
+          if(pauseInfo) pauseInfo.textContent='';
+        }else{
+          const d1 = new Date(r.startTs);
+          if(inicio) inicio.value = pad(d1.getHours())+':'+pad(d1.getMinutes())+':'+pad(d1.getSeconds());
+          if(r.endTs){
+            const d2 = new Date(r.endTs);
+            if(fin) fin.value = pad(d2.getHours())+':'+pad(d2.getMinutes())+':'+pad(d2.getSeconds());
+          }
+          const secs = calcNetSeconds(r);
+          if(totalDisp){
+          totalDisp.textContent = secs ? fmtHMS(secs) : '';
+          totalDisp.classList.toggle('empty', !secs);
+          }
+          if(r.pauseStart){
+            if(pauseInfo) pauseInfo.textContent = 'En pausa...';
+          }else if(pauseInfo){
+            const n = (r.pauses||[]).length;
+            pauseInfo.textContent = n ? (n+' pausa(s) registradas') : '';
+          }
+        }
+
+        if(buttons.start) buttons.start.disabled = readOnly || !!r.startTs;
+        if(buttons.pause) buttons.pause.disabled = readOnly || !r.startTs || !!r.endTs;
+        if(buttons.end)   buttons.end.disabled   = readOnly || !!r.endTs;
+
+        tr.classList.toggle('row-locked', !!r.locked || readOnly);
+      });
+    }
+
+    function addRow(otId){
+      const ot = ots.find(o=>o.id===otId);
+      if(!ot || ot.cerrada) return;
+      const id = ++rowId;
+      const r = {id, otId, startTs:null, endTs:null, pauses:[], pauseStart:null, locked:false};
+      ot.rows.push(r);
+
+      ['a','c'].forEach(suf=>{
+        const tbody = document.getElementById('tbody-'+suf+'-'+otId);
+        if(!tbody) return;
+        const tr = document.createElement('tr');
+        tr.id = 'row-'+suf+'-'+r.id;
+        const readOnly = (suf==='c');
+        tr.innerHTML = `
+          <td style="color:#999;font-size:10px" class="rn"></td>
+          <td><input class="cell" type="text" value="${today()}" ${readOnly?'disabled':''}></td>
+          <td><select class="cell" ${readOnly?'disabled':''}>${OPERARIOS.map(op=>`<option>${op}</option>`).join('')}</select></td>
+          <td><select class="cell" ${readOnly?'disabled':''}>
+            <option value="">— Proceso —</option>
+            ${PROCESOS.map(p=>`<option>${p}</option>`).join('')}
+          </select></td>
+          <td><input class="cell hora-inicio" type="text" placeholder="hh:mm:ss" ${readOnly?'disabled':''}></td>
+          <td>
+            <div class="time-cell">
+              <button class="btn-t btn-start" onclick="pressStart(${r.id})">INICIO</button>
+              <button class="btn-t btn-pause" onclick="pressPause(${r.id})">PAUSA</button>
+              <button class="btn-t btn-end"   onclick="pressEnd(${r.id})">FIN</button>
+            </div>
+            <span class="pause-info"></span>
+          </td>
+          <td><input class="cell hora-fin" type="text" placeholder="hh:mm:ss" ${readOnly?'disabled':''}></td>
+          <td class="total-cell"><span class="total-disp empty"></span></td>
+          <td><input class="cell obs" type="text" placeholder="Notas" ${readOnly?'disabled':''}></td>
+          <td><button class="btn-del" onclick="delRow(${r.id},${otId})">X</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      renderRow(r);
+      refreshRowNums(otId);
+      updateOTTotal(otId);
+      persistAll();
+    }
+
+    function refreshRowNums(otId){
+      ['a','c'].forEach(suf=>{
+        const tbody = document.getElementById('tbody-'+suf+'-'+otId);
+        if(!tbody) return;
+        let i=1;
+        tbody.querySelectorAll('.rn').forEach(td=>{ td.textContent=i++; });
+      });
+    }
+
+    function pressStart(id){
+      const r = allRows().find(x=>x.id===id);
+      if(!r) return;
+      const ot = ots.find(o=>o.id===r.otId);
+      if(!ot || ot.cerrada) return;
+      if(r.locked) return;
+      r.startTs = Date.now();
+      r.endTs = null;
+      r.pauses = [];
+      r.pauseStart = null;
+      renderRow(r);
+      updateOTTotal(r.otId);
+      persistAll();
+    }
+
+    function pressPause(id){
+      const r = allRows().find(x=>x.id===id);
+      if(!r) return;
+      const ot = ots.find(o=>o.id===r.otId);
+      if(!ot || ot.cerrada) return;
+      if(r.locked || !r.startTs || r.endTs) return;
+      if(!r.pauseStart){
+        r.pauseStart = Date.now();
+      }else{
+        r.pauses.push({from:r.pauseStart,to:Date.now()});
+        r.pauseStart = null;
+      }
+      renderRow(r);
+      updateOTTotal(r.otId);
+      persistAll();
+    }
+
+    function pressEnd(id){
+      const r = allRows().find(x=>x.id===id);
+      if(!r) return;
+      const ot = ots.find(o=>o.id===r.otId);
+      if(!ot || ot.cerrada) return;
+      if(!r.startTs || r.locked) return;
+      if(r.pauseStart){
+        r.pauses.push({from:r.pauseStart,to:Date.now()});
+        r.pauseStart = null;
+      }
+      r.endTs = Date.now();
+      r.locked = true;
+      renderRow(r);
+      updateOTTotal(r.otId);
+      persistAll();
+    }
+
+    function delRow(rowId, otId){
+      const ot = ots.find(o=>o.id===otId);
+      if(!ot) return;
+      ot.rows = ot.rows.filter(r=>r.id!==rowId);
+      ['a','c'].forEach(suf=>{
+        document.getElementById('row-'+suf+'-'+rowId)?.remove();
+      });
+      refreshRowNums(otId);
+      updateOTTotal(otId);
+      persistAll();
+    }
+
+    // --------- OT ---------
+    function createOT(){
+      const id = ++otId;
+      const ot = {
+        id,
+        num: 'OT-'+String(id).padStart(3,'0'),
+        desc: '',
+        cliente: '',
+        color: '#3498db',
+        rows: [],
+        cerrada: false
+      };
+      ots.push(ot);
+      renderOTStructures(ot);
+      addRow(id);
+      activateOT(id);
+      setMainView('abiertas');
+      persistAll();
+    }
+
+    function renderOTStructures(ot){
+      // pestañas
+      const barA = document.getElementById('ot-tabs-abiertas');
+      const btnNew = barA.querySelector('.btn-new-ot');
+      const tabA = document.createElement('button');
+      tabA.className='ot-tab';
+      tabA.dataset.id=ot.id;
+      tabA.id='tab-a-'+ot.id;
+      tabA.onclick=()=>{ activateOT(ot.id); setMainView('abiertas'); };
+      tabA.innerHTML=`<span class="tab-label">${ot.num}</span>`;
+      const xa=document.createElement('button');
+      xa.className='close-ot';
+      xa.textContent='✕';
+      xa.onclick=e=>{e.stopPropagation(); removeOT(ot.id);};
+      tabA.appendChild(xa);
+      barA.insertBefore(tabA, btnNew);
+
+      const barC = document.getElementById('ot-tabs-cerradas');
+      const tabC = document.createElement('button');
+      tabC.className='ot-tab cerrada';
+      tabC.dataset.id=ot.id;
+      tabC.id='tab-c-'+ot.id;
+      tabC.onclick=()=>{ activateOT(ot.id); setMainView('cerradas'); };
+      tabC.innerHTML=`<span class="tab-label">${ot.num}</span>`;
+      const xc=document.createElement('button');
+      xc.className='close-ot';
+      xc.textContent='✕';
+      xc.onclick=e=>{e.stopPropagation(); removeOT(ot.id);};
+      tabC.appendChild(xc);
+      barC.appendChild(tabC);
+
+      // panel abierta
+      const pa = document.createElement('div');
+      pa.className='ot-content ot-panel';
+      pa.dataset.id=ot.id;
+      pa.id='panel-a-'+ot.id;
+      pa.style.display='none';
+      pa.innerHTML = panelInnerHTML(ot,false);
+      document.getElementById('ot-panels-abiertas').appendChild(pa);
+
+      // panel cerrada
+      const pc = document.createElement('div');
+      pc.className='ot-content ot-panel';
+      pc.dataset.id=ot.id;
+      pc.id='panel-c-'+ot.id;
+      pc.style.display='none';
+      pc.innerHTML = panelInnerHTML(ot,true);
+      document.getElementById('ot-panels-cerradas').appendChild(pc);
+
+      applyClosedUI(ot.id);
+      applyOTVisibility();
+    }
+
+    function panelInnerHTML(ot,isClosed){
+      const badgeClass = isClosed ? 'badge-cerrada' : 'badge-abierta';
+      const badgeText  = isClosed ? 'Cerrada' : 'Abierta';
+      const mainBtn = isClosed
+        ? `<button class="btn-a btn-reabrir" onclick="reabrirOT(${ot.id})">Reabrir OT</button>`
+        : `<button class="btn-a btn-finalizar" onclick="finalizarOT(${ot.id})">Finalizar OT</button>`;
+      return `
+        <div class="ot-meta">
+          <label>Nº OT</label>
+          <input type="text" id="${isClosed?'cotnum':'otnum'}-${ot.id}" value="${ot.num}"
+            ${isClosed?'disabled':''}
+            oninput="const o=ots.find(x=>x.id===${ot.id});o.num=this.value;updateTabLabel(${ot.id});persistAll()" style="width:80px">
+          <label>Descripcion</label>
+          <input type="text" id="${isClosed?'cotdesc':'otdesc'}-${ot.id}" value="${ot.desc||''}" placeholder="Descripción del trabajo"
+            ${isClosed?'disabled':''}
+            oninput="const o=ots.find(x=>x.id===${ot.id});o.desc=this.value;persistAll()" style="width:220px">
+          <label>Cliente</label>
+          <input type="text" id="${isClosed?'cotcli':'otcli'}-${ot.id}" value="${ot.cliente||''}" placeholder="Nombre del cliente"
+            ${isClosed?'disabled':''}
+            oninput="const o=ots.find(x=>x.id===${ot.id});o.cliente=this.value;persistAll()" style="width:180px">
+          <span id="${isClosed?'cbadge':'badge'}-${ot.id}" class="badge ${badgeClass}">${badgeText}</span>
+          ${mainBtn}
+          <button class="btn-a btn-danger" style="font-size:11px;padding:4px 10px" onclick="removeOT(${ot.id})">Eliminar OT</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:24px"></th>
+                <th style="width:80px">Fecha</th>
+                <th style="width:120px">Operario</th>
+                <th style="width:120px">Proceso</th>
+                <th style="width:100px">Hora inicio</th>
+                <th style="width:200px">Controles</th>
+                <th style="width:80px">Hora fin</th>
+                <th style="width:100px">Total neto</th>
+                <th>Observaciones</th>
+                <th style="width:26px"></th>
+              </tr>
+            </thead>
+            <tbody id="tbody-${isClosed?'c':'a'}-${ot.id}"></tbody>
+          </table>
+        </div>
+        <div class="ot-footer">
+          <div class="ot-footer-left">
+            ${isClosed ? '' : `<button class="btn-a btn-add-row" id="btnadd-${ot.id}" onclick="addRow(${ot.id})">Añadir fila</button>`}
+          </div>
+          <div class="ot-footer-right">
+            <div class="total-bar" id="totalbar-${isClosed?'c':'a'}-${ot.id}">Tiempo total 0h 00min</div>
+            <button class="btn-a btn-print-ot" onclick="printOT(${ot.id})">Imprimir PDF</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function applyClosedUI(otId){
+      const ot = ots.find(o=>o.id===otId);
+      if(!ot) return;
+      const isClosed = !!ot.cerrada;
+
+      const tabA = document.getElementById('tab-a-'+otId);
+      const tabC = document.getElementById('tab-c-'+otId);
+      if(tabA) tabA.classList.toggle('cerrada', isClosed);
+      if(tabC) tabC.classList.toggle('cerrada', isClosed);
+
+      const badgeA = document.getElementById('badge-'+otId);
+      const badgeC = document.getElementById('cbadge-'+otId);
+      if(badgeA){
+        badgeA.textContent = isClosed?'Cerrada':'Abierta';
+        badgeA.className = 'badge '+(isClosed?'badge-cerrada':'badge-abierta');
+      }
+      if(badgeC){
+        badgeC.textContent = isClosed?'Cerrada':'Abierta';
+        badgeC.className = 'badge '+(isClosed?'badge-cerrada':'badge-abierta');
+      }
+
+      // inputs y botones
+      ['a','c'].forEach(suf=>{
+        const panel = document.getElementById('panel-'+suf+'-'+otId);
+        if(!panel) return;
+        panel.querySelectorAll('input.cell,select.cell').forEach(inp=>{
+          if(inp.closest('tbody')){ // solo filas
+            if(isClosed) inp.setAttribute('disabled','disabled');
+            else if(suf==='a') inp.removeAttribute('disabled');
+          }
+        });
+      });
+
+      ot.rows.forEach(r=>renderRow(r));
+      applyOTVisibility();
+    }
+
+    function finalizarOT(otId){
+      const ot = ots.find(o=>o.id===otId);
+      if(!ot) return;
+      ot.cerrada = true;
+      applyClosedUI(otId);
+      setMainView('cerradas');
+      activeOT = otId;
+      applyOTVisibility();
+      persistAll();
+    }
+
+    function reabrirOT(otId){
+      const ot = ots.find(o=>o.id===otId);
+      if(!ot) return;
+      ot.cerrada = false;
+      applyClosedUI(otId);
+      setMainView('abiertas');
+      activeOT = otId;
+      applyOTVisibility();
+      persistAll();
+    }
+
+    function activateOT(id){
+      activeOT = id;
+      applyOTVisibility();
+      updateTabLabel(id);
+      persistAll();
+    }
+
+    function updateTabLabel(id){
+      const ot = ots.find(o=>o.id===id); if(!ot) return;
+      const tabA = document.getElementById('tab-a-'+id);
+      const tabC = document.getElementById('tab-c-'+id);
+      if(tabA){
+        const lab = tabA.querySelector('.tab-label');
+        if(lab) lab.textContent = ot.num;
+      }
+      if(tabC){
+        const lab = tabC.querySelector('.tab-label');
+        if(lab) lab.textContent = ot.num;
+      }
+    }
+
+    function removeOT(id){
+      const ot = ots.find(o=>o.id===id);
+      showModal(`¿Eliminar la OT "${ot?.num || id}" de forma permanente?`, ()=>{
+        ots = ots.filter(o=>o.id!==id);
+        ['a','c'].forEach(suf=>{
+          document.getElementById('tab-'+suf+'-'+id)?.remove();
+          document.getElementById('panel-'+suf+'-'+id)?.remove();
+        });
+        if(activeOT===id){
+          const last = ots[ots.length-1];
+          activeOT = last ? last.id : null;
+          if(last){
+            activateOT(last.id);
+          }
+        }
+        persistAll();
+      });
+    }
+
+    function printOT(id){
+      alert('Imprimir OT '+id+' (pendiente de implementar)');
+    }
+
+    // --------- BOOT LOCAL ---------
+    function boot(){
+      const saved = loadState();
+      ots = [];
+      otId = 0;
+      rowId = 0;
+      activeOT = null;
+
+      document.getElementById('ot-tabs-abiertas').querySelectorAll('.ot-tab').forEach(t=>{
+        if(!t.classList.contains('btn-new-ot')) t.remove();
+      });
+      document.getElementById('ot-tabs-cerradas').innerHTML = '';
+      document.getElementById('ot-panels-abiertas').innerHTML = '';
+      document.getElementById('ot-panels-cerradas').innerHTML = '';
+
+      if(saved && Array.isArray(saved.ots) && saved.ots.length){
+        ots = saved.ots.map(o=>({
+          id:o.id,
+          num:o.num,
+          desc:o.desc||'',
+          cliente:o.cliente||'',
+          color:o.color||'#3498db',
+          cerrada:!!o.cerrada,
+          rows:(o.rows||[]).map(r=>({
+            id:r.id,
+            otId:o.id,
+            startTs:r.startTs,
+            endTs:r.endTs,
+            pauses:r.pauses||[],
+            pauseStart:null,
+            locked:!!r.locked
+          }))
+        }));
+        otId   = saved.otId || Math.max(...ots.map(o=>o.id),0);
+        rowId  = saved.rowId|| Math.max(...ots.flatMap(o=>o.rows.map(r=>r.id)),0);
+        activeOT = saved.activeOT || (ots[0]?.id || null);
+
+        ots.forEach(ot=>{
+          renderOTStructures(ot);
+          ot.rows.forEach(r=>{
+            ['a','c'].forEach(suf=>{
+              const tbody = document.getElementById('tbody-'+suf+'-'+ot.id);
+              if(!tbody) return;
+              const readOnly = (suf==='c');
+              const tr = document.createElement('tr');
+              tr.id = 'row-'+suf+'-'+r.id;
+              tr.innerHTML = `
+                <td style="color:#999;font-size:10px" class="rn"></td>
+                <td><input class="cell" type="text" value="${today()}" ${readOnly?'disabled':''}></td>
+                <td><select class="cell" ${readOnly?'disabled':''}>${OPERARIOS.map(op=>`<option>${op}</option>`).join('')}</select></td>
+                <td><select class="cell" ${readOnly?'disabled':''}>
+                  <option value="">— Proceso —</option>
+                  ${PROCESOS.map(p=>`<option>${p}</option>`).join('')}
+                </select></td>
+                <td><input class="cell hora-inicio" type="text" placeholder="hh:mm:ss" ${readOnly?'disabled':''}></td>
+                <td>
+                  <div class="time-cell">
+                    <button class="btn-t btn-start" onclick="pressStart(${r.id})">INICIO</button>
+                    <button class="btn-t btn-pause" onclick="pressPause(${r.id})">PAUSA</button>
+                    <button class="btn-t btn-end"   onclick="pressEnd(${r.id})">FIN</button>
+                  </div>
+                  <span class="pause-info"></span>
+                </td>
+                <td><input class="cell hora-fin" type="text" placeholder="hh:mm:ss" ${readOnly?'disabled':''}></td>
+                <td class="total-cell"><span class="total-disp empty"></span></td>
+                <td><input class="cell obs" type="text" placeholder="Notas" ${readOnly?'disabled':''}></td>
+                <td><button class="btn-del" onclick="delRow(${r.id},${ot.id})">X</button></td>
+              `;
+              tbody.appendChild(tr);
+            });
+            renderRow(r);
+          });
+          refreshRowNums(ot.id);
+          updateOTTotal(ot.id);
+          applyClosedUI(ot.id);
+        });
+        if(activeOT) activateOT(activeOT);
+        setStatus('Datos cargados de este navegador','ok');
+      }else{
+        createOT();
+        setStatus('Sesión nueva — se guarda en este navegador','info');
+      }
+
+      const overlay = document.getElementById('loading-overlay');
+      if (overlay) overlay.style.display='none';
+    }
+
+    window.addEventListener('load', boot);
+  </script>
+</body>
+</html>
